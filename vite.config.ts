@@ -8,16 +8,14 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
   },
   vite: {
     css: {
-      // Use PostCSS instead of LightningCSS for compatibility with @tailwindcss/vite
       transformer: "postcss",
     },
   },
-  // When building on Vercel the VERCEL env var is set automatically by the platform,
-  // which tells Nitro to use the Vercel preset. No extra config needed.
+  nitro: {
+    preset: "vercel",
+  },
 });
