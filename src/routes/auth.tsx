@@ -32,13 +32,18 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        toast.success("Welcome to SoleMate!");
-        navigate({ to: "/onboarding", replace: true });
+        if (data.session) {
+          toast.success("Welcome to SoleMate!");
+          await supabase.auth.getSession();
+          navigate({ to: "/onboarding", replace: true });
+        } else {
+          toast.success("Check your email for a confirmation link");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
