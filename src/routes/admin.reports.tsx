@@ -13,6 +13,7 @@ export const Route = createFileRoute("/admin/reports")({
 type Report = {
   id: string;
   photo_id: string;
+  reporter_id: string;
   reporter_username: string | null;
   reason: string;
   created_at: string;
@@ -29,24 +30,28 @@ function AdminReports() {
     (async () => {
       const { data } = await supabase
         .from("photo_reports")
-        .select("id, photo_id, reporter_id, reason, created_at, photos!inner(storage_path), profiles!reporter_id(username)")
+        .select("id, photo_id, reporter_id, reason, created_at, photos(storage_path)")
         .order("created_at", { ascending: false });
       const mapped: Report[] = (data ?? []).map((r: any) => ({
         id: r.id,
         photo_id: r.photo_id,
+        reporter_id: r.reporter_id,
         reason: r.reason,
         created_at: r.created_at,
         photo_storage_path: r.photos?.storage_path ?? null,
         photo_username: null,
-        reporter_username: r.profiles?.username ?? null,
+        reporter_username: null,
       }));
       for (const report of mapped) {
-        const { data: p } = await supabase
-          .from("photos")
-          .select("profiles!inner(username)")
-          .eq("id", report.photo_id)
-          .single();
-        report.photo_username = (p as any)?.profiles?.username ?? null;
+        const [p, rep] = await Promise.all([
+          supabase.from("photos").select("user_id").eq("id", report.photo_id).single(),
+          supabase.from("profiles").select("username").eq("id", report.reporter_id).maybeSingle(),
+        ]);
+        report.reporter_username = (rep.data as any)?.username ?? null;
+        if (p.data) {
+          const owner = await supabase.from("profiles").select("username").eq("id", (p.data as any).user_id).single();
+          report.photo_username = (owner.data as any)?.username ?? null;
+        }
       }
       setReports(mapped);
       setLoading(false);
