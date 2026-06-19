@@ -50,7 +50,8 @@ function AuthPage() {
         navigate({ to: "/rate", replace: true });
       }
     } catch (e: any) {
-      toast.error(e.message ?? "Auth failed");
+      console.error("Auth error:", e);
+      toast.error(typeof e === "object" ? (e.message || JSON.stringify(e)) : String(e));
     } finally {
       setBusy(false);
     }
