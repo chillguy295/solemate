@@ -10,5 +10,5 @@ export function PhotoImage({ path, className, alt }: { path: string; className?:
     return () => { alive = false; };
   }, [path]);
   if (!url) return <div className={cn("bg-muted animate-pulse", className)} />;
-  return <img src={url} alt={alt ?? ""} className={className} loading="lazy" />;
+  return <img src={url} alt={alt ?? ""} className={className} loading="lazy" draggable={false} />;
 }

@@ -1,11 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Flame, MapPin, Heart, Flag } from "lucide-react";
+import { Flame, MapPin, Heart, Flag, UserPlus, UserCheck, Send, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { PhotoImage } from "@/components/photo-image";
 import { StarRating } from "@/components/star-rating";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES, categoryLabel } from "@/lib/categories";
@@ -16,6 +17,14 @@ export const Route = createFileRoute("/_authenticated/rate")({
 });
 
 const DAILY_GOAL = 10;
+
+type Comment = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  username: string;
+};
 
 type NextPhoto = {
   id: string;
@@ -39,6 +48,44 @@ function RatePage() {
   const [streak, setStreak] = useState(0);
   const [unlockedPicks, setUnlockedPicks] = useState(false);
   const [ratedId, setRatedId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [following, setFollowing] = useState(false);
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const swipeRef = useRef<{ active: boolean; startX: number; stars: number }>({ active: false, startX: 0, stars: 0 });
+  const imageRef = useRef<HTMLDivElement>(null);
+  const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
+  const [swipeStars, setSwipeStars] = useState(0);
+
+  function onPointerDown(e: React.PointerEvent) {
+    if (!photo || busy) return;
+    imageRef.current?.setPointerCapture(e.pointerId);
+    swipeRef.current = { active: true, startX: e.clientX, stars: 0 };
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!swipeRef.current.active) return;
+    const dx = e.clientX - swipeRef.current.startX;
+    const abs = Math.abs(dx);
+    if (abs < 30) { setSwipeDir(null); setSwipeStars(0); swipeRef.current.stars = 0; return; }
+    const pct = Math.min(1, (abs - 30) / 180);
+    let stars = Math.round(dx > 0 ? 3 + pct * 2 : 3 - pct * 2);
+    stars = Math.max(1, Math.min(5, stars));
+    swipeRef.current.stars = stars;
+    setSwipeDir(dx > 0 ? "right" : "left");
+    setSwipeStars(stars);
+  }
+  function onPointerUp() {
+    const s = swipeRef.current;
+    if (s.active && s.stars > 0) onRate(s.stars);
+    s.active = false; s.stars = 0;
+    setSwipeDir(null);
+    setSwipeStars(0);
+  }
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
 
   async function ensureOnboarded() {
     const { data: u } = await supabase.auth.getUser();
@@ -59,16 +106,108 @@ function RatePage() {
 
   async function loadNext() {
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_next_photo", { p_category: filter ?? undefined });
-    if (error) { toast.error(error.message); setLoading(false); return; }
-    setPhoto(data?.[0] ?? null);
+    if (filter === "following") {
+      const { data, error } = await supabase.rpc("get_followed_photos");
+      if (error) { toast.error(error.message); setLoading(false); return; }
+      const list = data ?? [];
+      setPhoto(list.length > 0 ? list[Math.floor(Math.random() * list.length)] as any : null);
+    } else {
+      const { data, error } = await supabase.rpc("get_next_photo", { p_category: filter ?? undefined });
+      if (error) { toast.error(error.message); setLoading(false); return; }
+      setPhoto(data?.[0] ?? null);
+    }
     setLoading(false);
+  }
+
+  async function loadComments() {
+    if (!photo) return;
+    const { data, error } = await supabase
+      .from("comments")
+      .select("id, user_id, body, created_at")
+      .eq("photo_id", photo.id)
+      .order("created_at", { ascending: true });
+    if (error) { toast.error(error.message); return; }
+    const userIds = [...new Set((data ?? []).map((c) => c.user_id))];
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", userIds.length > 0 ? userIds : ["_"]);
+    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p.username]));
+    setComments((data ?? []).map((c) => ({
+      id: c.id, user_id: c.user_id, body: c.body,
+      created_at: c.created_at, username: profileMap.get(c.user_id) ?? "unknown",
+    })));
+  }
+
+  async function checkFollow() {
+    if (!photo) return;
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const { data } = await supabase
+      .from("follows")
+      .select("follower_id")
+      .eq("follower_id", u.user.id)
+      .eq("following_id", photo.user_id)
+      .maybeSingle();
+    setFollowing(!!data);
+  }
+
+  async function submitComment() {
+    if (!photo || !commentText.trim() || commentBusy) return;
+    setCommentBusy(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
+      const { error } = await supabase.from("comments").insert({
+        photo_id: photo.id,
+        user_id: u.user.id,
+        body: commentText.trim(),
+      });
+      if (error) throw error;
+      setCommentText("");
+      await loadComments();
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not post comment");
+    } finally {
+      setCommentBusy(false);
+    }
+  }
+
+  async function toggleFollow() {
+    if (!photo || !photo.user_id) return;
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
+      if (following) {
+        const { error } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_id", u.user.id)
+          .eq("following_id", photo.user_id);
+        if (error) throw error;
+        setFollowing(false);
+      } else {
+        const { error } = await supabase
+          .from("follows")
+          .insert({ follower_id: u.user.id, following_id: photo.user_id });
+        if (error) throw error;
+        setFollowing(true);
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not update follow");
+    }
   }
 
   useEffect(() => {
     (async () => { if (await ensureOnboarded()) { await loadCounts(); await loadNext(); } })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
+
+  useEffect(() => {
+    loadComments();
+    checkFollow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photo]);
 
   async function onRate(stars: number) {
     if (!photo || busy) return;
@@ -101,7 +240,11 @@ function RatePage() {
     }
   }
 
-  const filters = useMemo(() => [{ value: null as string | null, label: "All" }, ...CATEGORIES.slice(0, 3).map((c) => ({ value: c.value, label: c.label }))], []);
+  const filters = useMemo(() => [
+    { value: null as string | null, label: "All" },
+    { value: "following", label: "Following" },
+    ...CATEGORIES.slice(0, 3).map((c) => ({ value: c.value, label: c.label })),
+  ], []);
   const progressPct = Math.min(100, (todayCount / DAILY_GOAL) * 100);
 
   const pickCopy = todayCount === 0 ? "Start rating!" : todayCount < 5 ? `${5 - todayCount} more to unlock picks` : "Picks unlocked!";
@@ -142,17 +285,52 @@ function RatePage() {
         ) : !photo ? (
           <EmptyState />
         ) : (
-          <div key={photo.id} className={cn(
-            "rounded-3xl bg-card border border-border/60 shadow-card overflow-hidden transition-all duration-300 animate-pop-in",
-            ratedId === photo.id ? "scale-95 opacity-0" : ""
-          )}>
-            <div className="relative">
-              <PhotoImage path={photo.storage_path} className="w-full aspect-[4/5] object-cover bg-gradient-to-br from-primary/5 to-accent/5" />
-            </div>
+            <div key={photo.id} className={cn(
+              "rounded-3xl bg-card border border-border/60 shadow-card overflow-hidden transition-all duration-300 animate-pop-in",
+              ratedId === photo.id ? "scale-95 opacity-0" : ""
+            )}>
+              <div
+                ref={imageRef}
+                className="relative select-none"
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onDragStart={(e) => e.preventDefault()}
+                style={{ touchAction: "none" }}
+              >
+                <PhotoImage path={photo.storage_path} className="w-full aspect-[4/5] object-cover bg-gradient-to-br from-primary/5 to-accent/5" />
+                {swipeDir && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] transition-opacity">
+                    <div className={cn(
+                      "flex flex-col items-center gap-2 text-white font-bold text-2xl drop-shadow-lg animate-pop-in",
+                      swipeDir === "right" ? "text-green-400" : "text-red-400"
+                    )}>
+                      {swipeDir === "right" ? <ChevronRight className="size-12" /> : <ChevronLeft className="size-12" />}
+                      <span>{swipeStars}★</span>
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-heading font-semibold text-lg truncate">@{photo.username}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Link to="/u/$username" params={{ username: photo.username }} className="font-heading font-semibold text-lg truncate hover:text-primary transition-colors">@{photo.username}</Link>
+                    {currentUserId !== photo.user_id && (
+                      <button
+                        onClick={toggleFollow}
+                        className={cn(
+                          "shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
+                          following
+                            ? "bg-primary/10 text-primary"
+                            : "bg-primary text-primary-foreground"
+                        )}
+                      >
+                        {following ? <UserCheck className="size-3" /> : <UserPlus className="size-3" />}
+                        {following ? "Following" : "Follow"}
+                      </button>
+                    )}
+                  </div>
                   {photo.city && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                       <MapPin className="size-3" /> {photo.city}
@@ -191,6 +369,40 @@ function RatePage() {
               <div className="mt-4 pt-4">
                 <StarRating onRate={onRate} disabled={busy} />
                 <p className="text-center text-xs text-muted-foreground/60 mt-2">Tap your rating</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border/40">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageCircle className="size-4 text-primary" />
+                  <span className="text-sm font-heading font-semibold">Comments</span>
+                </div>
+                <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-none mb-3">
+                  {comments.length === 0 ? (
+                    <p className="text-xs text-muted-foreground/60">No comments yet.</p>
+                  ) : (
+                    comments.map((c) => (
+                      <div key={c.id} className="text-sm">
+                        <span className="font-medium text-primary">@{c.username}</span>
+                        <span className="text-foreground/80 ml-1.5">{c.body}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
+                    placeholder="Write a comment…"
+                    className="flex-1 rounded-xl border border-border/60 bg-transparent px-3 py-2 text-sm outline-none focus:border-primary/50 transition-colors"
+                  />
+                  <button
+                    onClick={submitComment}
+                    disabled={!commentText.trim() || commentBusy}
+                    className="shrink-0 size-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 transition-opacity"
+                  >
+                    <Send className="size-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

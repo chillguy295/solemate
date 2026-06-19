@@ -12,17 +12,24 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as UUsernameRouteImport } from './routes/u.$username'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminPushRouteImport } from './routes/admin.push'
+import { Route as AdminPhotosRouteImport } from './routes/admin.photos'
+import { Route as AdminContestsRouteImport } from './routes/admin.contests'
 import { Route as AuthenticatedRateRouteImport } from './routes/_authenticated/rate'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
+import { Route as AuthenticatedInviteRouteImport } from './routes/_authenticated/invite'
 import { Route as AuthenticatedGoProRouteImport } from './routes/_authenticated/go-pro'
 import { Route as AuthenticatedContestsRouteImport } from './routes/_authenticated/contests'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -39,6 +46,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -48,10 +60,40 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const UUsernameRoute = UUsernameRouteImport.update({
   id: '/u/$username',
   path: '/u/$username',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPushRoute = AdminPushRouteImport.update({
+  id: '/push',
+  path: '/push',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPhotosRoute = AdminPhotosRouteImport.update({
+  id: '/photos',
+  path: '/photos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminContestsRoute = AdminContestsRouteImport.update({
+  id: '/contests',
+  path: '/contests',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AuthenticatedRateRoute = AuthenticatedRateRouteImport.update({
   id: '/rate',
@@ -80,6 +122,11 @@ const AuthenticatedLeaderboardRoute =
     path: '/leaderboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedInviteRoute = AuthenticatedInviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGoProRoute = AuthenticatedGoProRouteImport.update({
   id: '/go-pro',
   path: '/go-pro',
@@ -90,111 +137,147 @@ const AuthenticatedContestsRoute = AuthenticatedContestsRouteImport.update({
   path: '/contests',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/contests': typeof AuthenticatedContestsRoute
   '/go-pro': typeof AuthenticatedGoProRoute
+  '/invite': typeof AuthenticatedInviteRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rate': typeof AuthenticatedRateRoute
+  '/admin/contests': typeof AdminContestsRoute
+  '/admin/photos': typeof AdminPhotosRoute
+  '/admin/push': typeof AdminPushRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/u/$username': typeof UUsernameRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/contests': typeof AuthenticatedContestsRoute
   '/go-pro': typeof AuthenticatedGoProRoute
+  '/invite': typeof AuthenticatedInviteRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/rate': typeof AuthenticatedRateRoute
+  '/admin/contests': typeof AdminContestsRoute
+  '/admin/photos': typeof AdminPhotosRoute
+  '/admin/push': typeof AdminPushRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/u/$username': typeof UUsernameRoute
+  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/contests': typeof AuthenticatedContestsRoute
   '/_authenticated/go-pro': typeof AuthenticatedGoProRoute
+  '/_authenticated/invite': typeof AuthenticatedInviteRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/rate': typeof AuthenticatedRateRoute
+  '/admin/contests': typeof AdminContestsRoute
+  '/admin/photos': typeof AdminPhotosRoute
+  '/admin/push': typeof AdminPushRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/u/$username': typeof UUsernameRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/auth'
     | '/privacy'
     | '/terms'
-    | '/admin'
     | '/contests'
     | '/go-pro'
+    | '/invite'
     | '/leaderboard'
     | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/rate'
+    | '/admin/contests'
+    | '/admin/photos'
+    | '/admin/push'
+    | '/admin/reports'
+    | '/admin/users'
     | '/u/$username'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/privacy'
     | '/terms'
-    | '/admin'
     | '/contests'
     | '/go-pro'
+    | '/invite'
     | '/leaderboard'
     | '/notifications'
     | '/onboarding'
     | '/profile'
     | '/rate'
+    | '/admin/contests'
+    | '/admin/photos'
+    | '/admin/push'
+    | '/admin/reports'
+    | '/admin/users'
     | '/u/$username'
+    | '/admin'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/admin'
     | '/auth'
     | '/privacy'
     | '/terms'
-    | '/_authenticated/admin'
     | '/_authenticated/contests'
     | '/_authenticated/go-pro'
+    | '/_authenticated/invite'
     | '/_authenticated/leaderboard'
     | '/_authenticated/notifications'
     | '/_authenticated/onboarding'
     | '/_authenticated/profile'
     | '/_authenticated/rate'
+    | '/admin/contests'
+    | '/admin/photos'
+    | '/admin/push'
+    | '/admin/reports'
+    | '/admin/users'
     | '/u/$username'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
@@ -224,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -238,12 +328,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/u/$username': {
       id: '/u/$username'
       path: '/u/$username'
       fullPath: '/u/$username'
       preLoaderRoute: typeof UUsernameRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/push': {
+      id: '/admin/push'
+      path: '/push'
+      fullPath: '/admin/push'
+      preLoaderRoute: typeof AdminPushRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/photos': {
+      id: '/admin/photos'
+      path: '/photos'
+      fullPath: '/admin/photos'
+      preLoaderRoute: typeof AdminPhotosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/contests': {
+      id: '/admin/contests'
+      path: '/contests'
+      fullPath: '/admin/contests'
+      preLoaderRoute: typeof AdminContestsRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/_authenticated/rate': {
       id: '/_authenticated/rate'
@@ -280,6 +412,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeaderboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/invite': {
+      id: '/_authenticated/invite'
+      path: '/invite'
+      fullPath: '/invite'
+      preLoaderRoute: typeof AuthenticatedInviteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/go-pro': {
       id: '/_authenticated/go-pro'
       path: '/go-pro'
@@ -294,20 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContestsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedContestsRoute: typeof AuthenticatedContestsRoute
   AuthenticatedGoProRoute: typeof AuthenticatedGoProRoute
+  AuthenticatedInviteRoute: typeof AuthenticatedInviteRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
@@ -316,9 +448,9 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedContestsRoute: AuthenticatedContestsRoute,
   AuthenticatedGoProRoute: AuthenticatedGoProRoute,
+  AuthenticatedInviteRoute: AuthenticatedInviteRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
@@ -329,9 +461,30 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AdminRouteChildren {
+  AdminContestsRoute: typeof AdminContestsRoute
+  AdminPhotosRoute: typeof AdminPhotosRoute
+  AdminPushRoute: typeof AdminPushRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminContestsRoute: AdminContestsRoute,
+  AdminPhotosRoute: AdminPhotosRoute,
+  AdminPushRoute: AdminPushRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,

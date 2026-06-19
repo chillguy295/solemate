@@ -20,6 +20,8 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) localStorage.setItem("referral_code", ref);
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/rate", replace: true });
     });
@@ -50,20 +52,20 @@ function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[oklch(0.99_0.005_50)] to-[oklch(0.97_0.01_30)] flex items-center justify-center px-5">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center px-5">
       <div className="w-full max-w-sm animate-pop-in">
         <div className="text-center mb-8">
           <div className="text-4xl font-heading font-bold tracking-tight text-primary">SoleMate</div>
           <p className="mt-2 text-sm text-muted-foreground">Rate photos. Climb the leaderboard. Win contests.</p>
         </div>
-        <div className="rounded-3xl bg-white/90 backdrop-blur shadow-card border border-border/60 p-6">
+        <div className="rounded-3xl bg-card/90 backdrop-blur shadow-card border border-border/60 p-6">
           <div className="flex gap-1 p-1 bg-muted/60 rounded-xl mb-5">
             {(["signin", "signup"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`flex-1 py-2 text-sm font-heading font-medium rounded-lg transition-all ${mode === m ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
+                className={`flex-1 py-2 text-sm font-heading font-medium rounded-lg transition-all ${mode === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
               >
                 {m === "signin" ? "Sign in" : "Sign up"}
               </button>
@@ -104,7 +106,7 @@ function AuthPage() {
                 <span className="w-full border-t border-border/40" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-muted-foreground/60">or</span>
+                <span className="bg-card px-2 text-muted-foreground/60">or</span>
               </div>
             </div>
             <Button type="button" variant="outline" className="w-full rounded-xl border-border/60 hover:border-primary/30" onClick={async () => {

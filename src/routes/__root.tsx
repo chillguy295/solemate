@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
+import { registerPushSubscription, unregisterPushSubscription } from "@/lib/push-subscription";
 
 function NotFoundComponent() {
   return (
@@ -72,11 +73,23 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        registerPushSubscription(session.user.id);
+      } else if (event === "SIGNED_OUT") {
+        unregisterPushSubscription();
+      }
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        registerPushSubscription(session.user.id);
+      }
+    });
+
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
   return (

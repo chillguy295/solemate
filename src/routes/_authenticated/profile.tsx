@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, LogOut, Sparkles, Pencil, Trash2, Sun, Moon } from "lucide-react";
+import { Upload, Camera, LogOut, Sparkles, Pencil, Trash2, Sun, Moon, Coins, Trophy, Share2, Gift, Copy, Users, Check } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { PhotoImage } from "@/components/photo-image";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ function ProfilePage() {
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingCategory, setPendingCategory] = useState<Category>("nail_art");
   const [pendingCaption, setPendingCaption] = useState("");
@@ -39,16 +40,23 @@ function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState("");
   const [editCity, setEditCity] = useState("");
+  const [achievements, setAchievements] = useState<{ id: string; title: string; description: string; icon: string }[]>([]);
+  const [coinBalance, setCoinBalance] = useState(0);
+  const [referralStats, setReferralStats] = useState<{ total_referrals: number; coins_earned: number } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function loadAll() {
     setLoading(true);
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const [{ data: p }, { data: ph }, { data: s }, { data: st }] = await Promise.all([
+    const [{ data: p }, { data: ph }, { data: s }, { data: st }, { data: ach }, { data: coins }, { data: rf }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle(),
       supabase.from("photos").select("id, storage_path, category, status, ratings(stars)").eq("user_id", u.user.id).order("created_at", { ascending: false }),
       supabase.rpc("get_user_stats", { p_user_id: u.user.id }),
       supabase.from("user_streaks").select("current_streak").eq("user_id", u.user.id).maybeSingle(),
+      supabase.from("user_achievements").select("achievement_id, achievements!inner(id, title, description, icon)").eq("user_id", u.user.id),
+      supabase.from("user_coins").select("balance").eq("user_id", u.user.id).maybeSingle(),
+      supabase.rpc("get_referral_stats", { p_user_id: u.user.id }),
     ]);
     setProfile(p as Profile);
     setEditBio(p?.bio ?? ""); setEditCity(p?.city ?? "");
@@ -60,6 +68,9 @@ function ProfilePage() {
     const st0 = s?.[0];
     if (st0) setStats({ avg: Number(st0.avg_score), photoCount: Number(st0.photo_count), given: Number(st0.ratings_given), received: Number(st0.ratings_received) });
     setStreak(st?.current_streak ?? 0);
+    setAchievements((ach ?? []).map((a: any) => a.achievements));
+    setCoinBalance(coins?.balance ?? 0);
+    setReferralStats(rf as { total_referrals: number; coins_earned: number } | null);
     setLoading(false);
   }
 
@@ -73,6 +84,8 @@ function ProfilePage() {
     }
     fileRef.current?.click();
   }
+
+  function captureCamera() { cameraRef.current?.click(); }
 
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -98,6 +111,12 @@ function ProfilePage() {
       setPendingFile(null);
       setPendingCaption("");
       await loadAll();
+      const newAch = await supabase.rpc("check_achievements", { p_user_id: u.user.id });
+      if (newAch.data?.length) {
+        const { data: details } = await supabase.from("achievements").select("*").in("id", newAch.data);
+        (details ?? []).forEach((a: any) => toast.success(`Achievement unlocked: ${a.icon} ${a.title}`, { description: a.description }));
+        await loadAll();
+      }
     } catch (e: any) {
       toast.error(e.message ?? "Upload failed");
     } finally {
@@ -160,10 +179,38 @@ function ProfilePage() {
               <StatCard label="Ratings given" value={stats.given} />
             </div>
 
+            <div className="mt-4 flex items-center justify-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-400">
+                <Coins className="size-4" /> {coinBalance} Sole Coins
+              </div>
+              {achievements.length > 0 && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Trophy className="size-4" /> {achievements.length} badges
+                </div>
+              )}
+            </div>
+
+            {achievements.length > 0 && (
+              <div className="mt-4">
+                <h3 className="font-heading font-semibold text-sm mb-2">Badges</h3>
+                <div className="flex flex-wrap gap-2">
+                  {achievements.map((a) => (
+                    <div key={a.id} className="inline-flex items-center gap-1.5 text-xs bg-primary/5 text-primary px-3 py-1.5 rounded-full" title={a.description}>
+                      <span>{a.icon}</span> {a.title}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex items-center justify-between">
               <h3 className="font-heading font-semibold">Your photos</h3>
-              <Button size="sm" onClick={pickFile} className="rounded-full"><Upload className="size-3.5 mr-1" /> Upload</Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={captureCamera} className="rounded-full"><Camera className="size-3.5 mr-1" /> Camera</Button>
+                <Button size="sm" onClick={pickFile} className="rounded-full"><Upload className="size-3.5 mr-1" /> Upload</Button>
+              </div>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileSelected} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileSelected} />
             </div>
             {!profile.is_pro && (
               <p className="text-xs text-muted-foreground mt-1">{stats.photoCount} / {FREE_UPLOAD_CAP} free uploads</p>
@@ -203,7 +250,62 @@ function ProfilePage() {
               )}
             </div>
 
-            <div className="mt-6 flex items-center justify-between rounded-2xl bg-white dark:bg-card border border-border/60 p-4 shadow-card dark:shadow-none">
+            <div className="mt-6 flex flex-col gap-2">
+              <button
+                onClick={async () => {
+                  const canvas = document.createElement("canvas");
+                  canvas.width = 600; canvas.height = 400;
+                  const ctx = canvas.getContext("2d")!;
+                  const isDark = document.documentElement.classList.contains("dark");
+                  ctx.fillStyle = isDark ? "#1a1a2e" : "#fdf2f8";
+                  ctx.fillRect(0, 0, 600, 400);
+                  ctx.fillStyle = isDark ? "#ec4899" : "#ec4899";
+                  ctx.font = "bold 48px sans-serif";
+                  ctx.textAlign = "center";
+                  ctx.fillText("🦶 SoleMate", 300, 80);
+                  ctx.fillStyle = isDark ? "#fff" : "#333";
+                  ctx.font = "24px sans-serif";
+                  ctx.fillText(`@${profile?.username ?? ""}`, 300, 130);
+                  ctx.font = "18px sans-serif";
+                  ctx.fillStyle = isDark ? "#ccc" : "#666";
+                  ctx.fillText(`⭐ ${stats.avg.toFixed(1)} avg · ${stats.photoCount} photos · ${stats.received} ratings`, 300, 170);
+                  ctx.fillText(`🔥 ${streak} day streak · ${coinBalance} coins · ${achievements.length} badges`, 300, 200);
+                  ctx.fillStyle = isDark ? "#888" : "#999";
+                  ctx.font = "14px sans-serif";
+                  ctx.fillText("Join me on SoleMate!", 300, 260);
+                  canvas.toBlob(async (blob) => {
+                    if (!blob) return;
+                    try {
+                      await navigator.share({ title: "SoleMate Profile", text: `Check out my SoleMate stats!`, files: [new File([blob], "solemate-card.png", { type: "image/png" })] });
+                    } catch { /* share cancelled */ }
+                  });
+                }}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card border border-border/60 p-4 shadow-card dark:shadow-none text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Share2 className="size-4" /> Share my profile
+              </button>
+
+              {profile && (
+                <Link
+                  to="/invite"
+                  className="flex items-center gap-4 rounded-2xl bg-white dark:bg-card border border-border/60 p-4 shadow-card dark:shadow-none hover:border-primary/30 transition-colors group"
+                >
+                  <div className="size-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white shrink-0">
+                    <Gift className="size-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-heading font-semibold text-sm">Invite friends</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {referralStats
+                        ? `${referralStats.total_referrals} joined · ${referralStats.coins_earned} coins earned`
+                        : "Get 20 coins per referral"}
+                    </p>
+                  </div>
+                  <Users className="size-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                </Link>
+              )}
+
+              <div className="flex items-center justify-between rounded-2xl bg-white dark:bg-card border border-border/60 p-4 shadow-card dark:shadow-none">
               <div>
                 <h3 className="font-heading font-semibold text-sm">Dark mode</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">Switch to a darker theme</p>
@@ -220,6 +322,7 @@ function ProfilePage() {
               >
                 {dark ? <Moon className="size-5" /> : <Sun className="size-5" />}
               </button>
+            </div>
             </div>
           </>
         )}

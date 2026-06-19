@@ -46,6 +46,17 @@ function Onboarding() {
         username: clean, bio: bio.trim() || null, city: city.trim() || null, onboarded: true,
       }).eq("id", u.user.id);
       if (error) throw error;
+
+      const refCode = localStorage.getItem("referral_code");
+      if (refCode) {
+        localStorage.removeItem("referral_code");
+        const { error: refErr } = await supabase.rpc("create_referral", {
+          p_referral_code: refCode,
+          p_new_user_id: u.user.id,
+        });
+        if (refErr) console.warn("Referral failed:", refErr);
+      }
+
       toast.success("Profile saved!");
       navigate({ to: "/rate", replace: true });
     } catch (e: any) {

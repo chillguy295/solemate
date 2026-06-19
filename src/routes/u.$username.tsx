@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, MapPin, Heart, UserPlus, UserCheck } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { PhotoImage } from "@/components/photo-image";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,16 +18,30 @@ function PublicProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [photos, setPhotos] = useState<{ id: string; storage_path: string; avg: number }[]>([]);
   const [stats, setStats] = useState({ avg: 0, photoCount: 0, received: 0 });
+  const [followCount, setFollowCount] = useState({ followers: 0, following: 0 });
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+
       const { data: p } = await supabase.from("profiles").select("*").eq("username", username).maybeSingle();
       if (!p) { setLoading(false); return; }
       setProfile(p as Profile);
-      const [{ data: ph }, { data: s }] = await Promise.all([
+
+      if (user && p.id === user.id) {
+        navigate({ to: "/profile" });
+        return;
+      }
+
+      const [{ data: ph }, { data: s }, { data: fcData }, { data: fw }] = await Promise.all([
         supabase.from("photos").select("id, storage_path, ratings(stars)").eq("user_id", p.id).eq("status", "approved").order("created_at", { ascending: false }),
         supabase.rpc("get_user_stats", { p_user_id: p.id }),
+        supabase.rpc("get_follow_count", { p_user_id: p.id }),
+        user ? supabase.from("follows").select("id").eq("follower_id", user.id).eq("following_id", p.id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       setPhotos((ph ?? []).map((row: any) => {
         const ratings = row.ratings ?? [];
@@ -36,9 +50,25 @@ function PublicProfile() {
       }));
       const st = s?.[0];
       if (st) setStats({ avg: Number(st.avg_score), photoCount: Number(st.photo_count), received: Number(st.ratings_received) });
+      const fcr = fcData?.[0];
+      if (fcr) setFollowCount({ followers: Number(fcr.follower_count), following: Number(fcr.following_count) });
+      setIsFollowing(!!fw);
       setLoading(false);
     })();
-  }, [username]);
+  }, [username, navigate]);
+
+  async function toggleFollow() {
+    if (!currentUserId || !profile) return;
+    if (isFollowing) {
+      await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", profile.id);
+      setIsFollowing(false);
+      setFollowCount((c) => ({ ...c, followers: c.followers - 1 }));
+    } else {
+      await supabase.from("follows").insert({ follower_id: currentUserId, following_id: profile.id });
+      setIsFollowing(true);
+      setFollowCount((c) => ({ ...c, followers: c.followers + 1 }));
+    }
+  }
 
   if (loading) return <AppShell hideNav><div className="p-8 text-center text-muted-foreground">Loading…</div></AppShell>;
   if (!profile) return <AppShell hideNav><div className="p-8 text-center text-muted-foreground">User not found.</div></AppShell>;
@@ -56,8 +86,17 @@ function PublicProfile() {
         <h2 className="mt-3 text-xl font-bold">@{profile.username} {profile.is_pro && <span className="text-xs bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2 py-0.5 rounded-full">PRO</span>}</h2>
         {profile.city && <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><MapPin className="size-3" />{profile.city}</div>}
         {profile.bio && <p className="text-sm mt-2 max-w-xs">{profile.bio}</p>}
+        {currentUserId && profile.id !== currentUserId && (
+          <button onClick={toggleFollow} className={`mt-3 flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full transition-colors ${isFollowing ? "bg-muted text-muted-foreground hover:bg-destructive hover:text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
+            {isFollowing ? <><UserCheck className="size-4" /> Following</> : <><UserPlus className="size-4" /> Follow</>}
+          </button>
+        )}
       </div>
-      <div className="px-5 mt-5 grid grid-cols-3 gap-2">
+      <div className="px-5 mt-4 flex items-center justify-center gap-6 text-sm">
+        <span className="text-muted-foreground"><strong className="text-foreground">{followCount.followers}</strong> followers</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{followCount.following}</strong> following</span>
+      </div>
+      <div className="px-5 mt-4 grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-card border p-3 text-center shadow-card"><div className="text-lg font-bold">{stats.avg.toFixed(2)}</div><div className="text-[10px] uppercase text-muted-foreground">Avg</div></div>
         <div className="rounded-xl bg-card border p-3 text-center shadow-card"><div className="text-lg font-bold">{stats.photoCount}</div><div className="text-[10px] uppercase text-muted-foreground">Photos</div></div>
         <div className="rounded-xl bg-card border p-3 text-center shadow-card"><div className="text-lg font-bold">{stats.received}</div><div className="text-[10px] uppercase text-muted-foreground">Ratings</div></div>

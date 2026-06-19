@@ -246,6 +246,71 @@ export type Database = {
         }
         Relationships: []
       }
+      comments: {
+        Row: {
+          id: string
+          photo_id: string
+          user_id: string
+          body: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          photo_id: string
+          user_id: string
+          body: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          photo_id?: string
+          user_id?: string
+          body?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      follows: {
+        Row: {
+          follower_id: string
+          following_id: string
+          created_at: string
+        }
+        Insert: {
+          follower_id: string
+          following_id: string
+          created_at?: string
+        }
+        Update: {
+          follower_id?: string
+          following_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photo_reports: {
         Row: {
           id: string
@@ -319,6 +384,24 @@ export type Database = {
       update_streak_for_user: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      get_follow_count: {
+        Args: { p_user_id: string }
+        Returns: { follower_count: number; following_count: number }[]
+      }
+      get_followed_photos: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          user_id: string
+          category: Database["public"]["Enums"]["photo_category"]
+          storage_path: string
+          username: string
+          city: string
+          caption: string | null
+          avg_score: number
+          rating_count: number
+        }[]
       }
       get_unread_notification_count: {
         Args: { p_user_id: string }
