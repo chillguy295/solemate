@@ -4,6 +4,8 @@ dist/
 .vercel/
 .env
 *.local
+vercel_token.txt
+Vercel_token.txt
 .DS_Store
 
 .vercel

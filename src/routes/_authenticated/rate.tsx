@@ -8,6 +8,10 @@ import { StarRating } from "@/components/star-rating";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES, categoryLabel } from "@/lib/categories";
 import { cn } from "@/lib/utils";
@@ -53,6 +57,27 @@ function RatePage() {
   const [following, setFollowing] = useState(false);
   const [commentBusy, setCommentBusy] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [reportPhoto, setReportPhoto] = useState<NextPhoto | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const REPORT_REASONS = ["Inappropriate content", "Not a foot photo", "Harassment", "Spam", "Other"];
+
+  async function submitReport(reason: string) {
+    if (!reportPhoto || !currentUserId) return;
+    setReportBusy(true);
+    try {
+      const { error } = await supabase.from("photo_reports").insert({ photo_id: reportPhoto.id, reason, reporter_id: currentUserId });
+      if (error) throw error;
+      toast.success("Report submitted");
+      setReportPhoto(null);
+      setReportReason("");
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to submit report");
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
   const swipeRef = useRef<{ active: boolean; startX: number; stars: number }>({ active: false, startX: 0, stars: 0 });
   const imageRef = useRef<HTMLDivElement>(null);
   const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
@@ -348,17 +373,7 @@ function RatePage() {
                     </div>
                   </div>
                   <button
-                    onClick={async () => {
-                      const reason = prompt("Why are you reporting this photo?");
-                      if (!reason) return;
-                      try {
-                        const { error } = await supabase.from("photo_reports").insert({ photo_id: photo.id, reason });
-                        if (error) throw error;
-                        toast.success("Report submitted");
-                      } catch (e: any) {
-                        toast.error(e.message ?? "Failed to report");
-                      }
-                    }}
+                    onClick={() => setReportPhoto(photo)}
                     className="size-7 rounded-full bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                     aria-label="Report photo"
                   >
@@ -408,6 +423,47 @@ function RatePage() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!reportPhoto} onOpenChange={(o) => { if (!o) { setReportPhoto(null); setReportReason(""); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="font-heading">Report photo</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Why are you reporting this photo?</p>
+          <div className="space-y-1.5 mt-3">
+            {REPORT_REASONS.map((r) => (
+              <button
+                key={r}
+                onClick={() => submitReport(r)}
+                disabled={reportBusy}
+                className="w-full text-left p-3 rounded-xl border border-border/60 text-sm hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40"
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <p className="text-xs text-muted-foreground mb-1.5">Or write a custom reason:</p>
+            <div className="flex gap-2">
+              <Textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="Custom reason…"
+                maxLength={280}
+                className="rounded-xl min-h-0 h-20 resize-none"
+              />
+              <Button
+                onClick={() => { if (reportReason.trim()) submitReport(reportReason.trim()); }}
+                disabled={!reportReason.trim() || reportBusy}
+                className="rounded-xl shrink-0 self-end"
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-full" onClick={() => { setReportPhoto(null); setReportReason(""); }}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
